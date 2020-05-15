@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: Namespace
+metadata: 
+  name: php-nginx
+---
+apiVersion: v1
+kind: Service 
+metadata:
+  name: php-nginx-service
+  namespace: php-nginx
+  labels:
+    web-app: web-app
+spec:
+  type: NodePort
+  ports: 
+    - name: "php-nginx-port"
+      port: 80
+      protocol: TCP
+  selector:
+    web-app: web-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-php-nginx
+  namespace: php-nginx
+spec:
+  selector:
+    matchLabels:
+      web-app: web-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        web-app: web-app
+    spec:
+      volumes:
+        - name: src 
+          hostPath:
+              path: /src
+        - name: config
+          configMap:
+            name: nginx-config
+            items:
+            - key: config
+              path: site.conf  
+      containers:
+      - name: php
+        image: php:7-fpm
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        volumeMounts:
+          - name: src 
+            mountPath: /usr/share/nginx/html
+        ports:
+          - containerPort: 9000
+      - name: nginx
+        image: nginx:latest
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+          - containerPort: 80
+        volumeMounts:
+          - name: src 
+            mountPath: /usr/share/nginx/html
+          - name: config
+            mountPath: /etc/nginx/conf.d
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: php-nginx
+  labels:
+    web-app: web-app
+data:
+  config : |
+    server {
+      index index.php index.html;
+      error_log  /var/log/nginx/error.log;
+      access_log /var/log/nginx/access.log;
+      root /usr/share/nginx/html;
+
+      location / {
+          try_files $uri $uri/ /index.php?$query_string;
+      }
+
+      location ~ \.php$ {
+          try_files $uri =404;
+          fastcgi_split_path_info ^(.+\.php)(/.+)$;
+          fastcgi_pass localhost:9000;
+          fastcgi_index index.php;
+          include fastcgi_params;
+          fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+          fastcgi_param PATH_INFO $fastcgi_path_info;
+        }
+    }
