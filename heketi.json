@@ -1,0 +1,72 @@
+{
+  "clusters": [
+    {
+      "nodes": [
+        {
+          "node": {
+            "hostnames": {
+              "manage": [
+                "k8s-master"
+              ],
+              "storage": [
+                "192.168.141.203"
+              ]
+            },
+            "zone": 1
+          },
+          "devices": [
+            "/dev/xvdb"
+          ]
+        },
+        {
+          "node": {
+            "hostnames": {
+              "manage": [
+                "k8s-node1"
+              ],
+              "storage": [
+                "192.168.141.205"
+              ]
+            },
+            "zone": 2
+          },
+          "devices": [
+            "/dev/xvdb"
+          ]
+        },
+        {
+          "node": {
+            "hostnames": {
+              "manage": [
+                "k8s-node2"
+              ],
+              "storage": [
+                "192.168.141.218"
+              ]
+            },
+            "zone": 3
+          },
+          "devices": [
+            "/dev/xvdb"
+          ]
+        },
+        {
+          "node": {
+            "hostnames": {
+              "manage": [
+                "k8s-node3"
+              ],
+              "storage": [
+                "192.168.141.206"
+              ]
+            },
+            "zone": 4
+          },
+          "devices": [
+            "/dev/xvdb"
+          ]
+        }
+      ]
+    }
+  ]
+}
