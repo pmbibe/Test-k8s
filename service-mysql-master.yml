@@ -31,28 +31,28 @@
 #    volumenameprefix: "k8s-dev"
 #    clusterid: "a2cb8d309ef955f807e391831bb5a0a2"
 # ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mysql-config
-  namespace: mysql-replicate
-data:
-  master: |
-    [mysqld]
-    log-bin=mysql-bin
-    server-id=1
-    innodb_flush_log_at_trx_commit=1
-    sync_binlog=1
-    skip-name-resolve
-    !includedir /etc/my.cnf.d
-  slave: |
-    [mysqld]
-    innodb_flush_log_at_trx_commit=1
-    sync_binlog=1
-    server-id=2
-    skip-name-resolve
-    !includedir /etc/my.cnf.d
----
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: mysql-config
+#   namespace: mysql-replicate
+# data:
+#   master: |
+#     [mysqld]
+#     log-bin=mysql-bin
+#     server-id=1
+#     innodb_flush_log_at_trx_commit=1
+#     sync_binlog=1
+#     skip-name-resolve
+#     !includedir /etc/my.cnf.d
+#   slave: |
+#     [mysqld]
+#     innodb_flush_log_at_trx_commit=1
+#     sync_binlog=1
+#     server-id=2
+#     skip-name-resolve
+#     !includedir /etc/my.cnf.d
+# ---
 # apiVersion: v1
 # kind: Pod
 # metadata:
@@ -113,52 +113,52 @@ data:
 ---
 
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: mysql-slave
-  namespace: mysql-replicate
-  labels:
-    name: mysql-slave
-spec:
-  volumes:
-    - name: data-slave
-      persistentVolumeClaim:
-          claimName: data-slave
-    - name: config-slave
-      configMap:
-          name: mysql-config
-          items:
-          - key: slave
-            path: server-id.cnf
-  containers:
-  - name: mysql-slave
-    image: babibe2211/mysql
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: mysql-slave
+#   namespace: mysql-replicate
+#   labels:
+#     name: mysql-slave
+# spec:
+#   volumes:
+#     - name: data-slave
+#       persistentVolumeClaim:
+#           claimName: data-slave
+#     - name: config-slave
+#       configMap:
+#           name: mysql-config
+#           items:
+#           - key: slave
+#             path: server-id.cnf
+#   containers:
+#   - name: mysql-slave
+#     image: babibe2211/mysql
     
-    ports:
-      - containerPort: 3306
-    volumeMounts:
-      - name: data-slave
-        mountPath: /var/lib/mysql
-      - name: config-slave
-        mountPath: /etc/mysql/mysql.conf.d/
+#     ports:
+#       - containerPort: 3306
+#     volumeMounts:
+#       - name: data-slave
+#         mountPath: /var/lib/mysql
+#       - name: config-slave
+#         mountPath: /etc/mysql/mysql.conf.d/
 
----
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-slave
-  namespace: mysql-replicate
-  annotations:
-   volume.beta.kubernetes.io/storage-class: gluster-heketi
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 3Gi
----
+# ---
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: data-slave
+#   namespace: mysql-replicate
+#   annotations:
+#    volume.beta.kubernetes.io/storage-class: gluster-heketi
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 3Gi
+# ---
 
 
 # CREATE USER 'repl'@'%' IDENTIFIED BY 'password';
@@ -171,3 +171,63 @@ spec:
 #          MASTER_PASSWORD='password',
 #          MASTER_LOG_FILE='mysql-bin.000001',
 #          MASTER_LOG_POS=899;
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-slave
+  namespace: mysql-replicate
+spec:
+  selector:
+    name: mysql-replicate
+  ports:
+  - port: 3306
+    targetPort: 3306
+
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: mysql-slave
+  namespace: mysql-replicate
+spec:
+  selector:
+    matchLabels:
+      name: mysql-replicate # has to match .spec.template.metadata.labels
+  serviceName: mysql-slave
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        name: mysql-replicate # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: config-slave
+          configMap:
+              name: mysql-config
+              items:
+              - key: slave
+                path: server-id.cnf
+      containers:
+      - name: mysql-slave-rep
+        image: babibe2211/mysql:latest
+        # command: ["/bin/bash"]
+        # args: ["-c","echo 1 > /etc/mysql/mysql.conf.d/test"]
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: data-slave-rep
+          mountPath: /var/lib/mysql
+        - name: config-slave
+          mountPath: /etc/mysql/mysql.conf.d/
+  volumeClaimTemplates:
+  - metadata:
+      name: data-slave-rep
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "gluster-heketi"
+      resources:
+        requests:
+          storage: 5Gi
