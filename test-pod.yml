@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-test
+spec:
+  # containers:
+  # - name: app-test
+  #   image: babibe2211/mysql
+  volumes:
+    - name: conf 
+      emptyDir: {}
+  containers:
+  - name: app-test
+    image: babibe2211/mysql
+    ports:
+    - containerPort: 3306
+    volumeMounts:
+      - name: conf
+        mountPath: "/etc/mysql/mysql.conf.d"
+  initContainers:
+  - name: pod-test
+    image: babibe2211/mysql
+    ports:
+      - containerPort: 3306
+    command: ["/bin/bash","-c", "
+                                echo [mysqld] > /tmp/mysql.cnf &&
+                                echo $HOSTNAME > /tmp/server-id.cnf &&
+                                cp /tmp/*.cnf /etc/mysql/mysql.conf.d/                              
+                                "]
+    volumeMounts:
+      - name: conf
+        mountPath: "/etc/mysql/mysql.conf.d"
